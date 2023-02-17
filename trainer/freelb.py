@@ -89,7 +89,7 @@ class FreeLBTrainer:
                 if j == self.adv_steps - 1:
                     break
 
-                self._inner_update(delta)
+                delta = self._inner_update(delta)
                 delta.requires_grad_()
                 inputs_embeds = self.word_embeddings(input_ids)
 
