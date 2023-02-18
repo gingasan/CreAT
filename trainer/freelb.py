@@ -41,10 +41,10 @@ class FreeLBTrainer:
 
         grad_norm = torch.norm(delta_grad.view(delta_grad.shape[0], -1), dim=-1, p="fro")
         grad_norm = torch.clamp(grad_norm, min=1e-8).view(-1, 1, 1)
-        self.delta = (delta + self.adv_lr * delta_grad / grad_norm).detach()
+        delta = (delta + self.adv_lr * delta_grad / grad_norm).detach()
 
         delta_norm = torch.norm(delta.view(delta.shape[0], -1), dim=-1, p="fro").detach()
-        clip_mask = (delta_norm > self.adv_max_norm).to(self.delta)
+        clip_mask = (delta_norm > self.adv_max_norm).to(delta)
         clip_weights = self.adv_max_norm / delta_norm * clip_mask + (1 - clip_mask)
         delta = (delta * clip_weights.view(-1, 1, 1)).detach()
 
