@@ -21,7 +21,7 @@ class Trainer:
         optimizer,
         scheduler,
         max_train_steps,
-        gradient_accumulation_steps=0,
+        gradient_accumulation_steps=1,
         fp16=False
     ):
         self.model = model

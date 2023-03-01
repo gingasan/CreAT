@@ -8,7 +8,7 @@ class SMARTTrainer:
         optimizer,
         scheduler,
         max_train_steps,
-        gradient_accumulation_steps=0,
+        gradient_accumulation_steps=1,
         fp16=False,
         adv_steps=2,
         adv_lr=1e-3,
