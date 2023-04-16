@@ -6,7 +6,12 @@ from tqdm import tqdm
 
 def kl_loss(p, q):
     loss_fct = nn.KLDivLoss(reduction="batchmean")
-    return loss_fct(torch.log_softmax(p, -1), torch.softmax(q, -1)) + loss_fct(torch.log_softmax(q, -1), torch.softmax(p, -1))
+    return loss_fct(torch.log_softmax(p, -1), torch.softmax(q, -1))
+
+
+def sym_kl_loss(p, q):
+    loss_fct = nn.KLDivLoss(reduction="batchmean")
+    return loss_fct(torch.log_softmax(p, -1), torch.softmax(q.detach(), -1)) + loss_fct(torch.log_softmax(q, -1), torch.softmax(p.detach(), -1))
 
 
 def cos_loss(p, q):

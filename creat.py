@@ -92,7 +92,7 @@ class CreATTrainer:
     ):
         self.model = model
         self.model_uw = model.module if hasattr(model, "module") else model
-        self.word_embeddings = getattr(self.model_uw, self.model_uw.config.model_type).embeddings.word_embeddings
+        self.word_embeddings = getattr(self.model_uw, self.model_uw.config.model_type.split("-")[0]).embeddings.word_embeddings
         self.device = model.device
         self.fp16 = fp16
         if self.fp16:

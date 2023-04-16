@@ -6,7 +6,9 @@ This repo is for the ICLR 2023 paper [Toward Adversarial Training on Contextuali
 
 ## Trainer
 
-We produce multiple adversarial training algorithms in `trainer`, e.g. FreeLBTrainer, SMARTTrainer.
+We implement a number of adversarial training algorithms in `trainer`, e.g. FreeLBTrainer, SMARTTrainer.
+
+The current version supports huggingface BERT, RoBERTa, DeBERTa, ALBERT, etc.
 
 **CreAT:**
 
@@ -32,6 +34,18 @@ for epoch in trange(3):
   global_step = trainer.global_step
 ```
 
+**R3F:**
+
+```python
+from trainer.r3f import R3FTrainer
+
+trainer = R3FTrainer(model, optimizer, scheduler, max_train_steps=10000, fp16=True)
+
+for epoch in trange(3):
+  train_loss, train_step = trainer.step(train_dataloader)
+  global_step = trainer.global_step
+```
+
 **FreeLB:**
 
 ```python
@@ -44,7 +58,7 @@ for epoch in trange(3):
   global_step = trainer.global_step
 ```
 
-**Regular training:**
+**Standard training:**
 
 ```python
 from trainer.base import Trainer

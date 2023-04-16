@@ -1,7 +1,7 @@
 from .base import *
 
 
-class SMARTTrainer:
+class R3FTrainer:
     def __init__(
         self,
         model,
@@ -10,11 +10,8 @@ class SMARTTrainer:
         max_train_steps,
         gradient_accumulation_steps=1,
         fp16=False,
-        adv_steps=2,
-        adv_lr=1e-3,
         adv_max_norm=1e-5,
-        adv_temp=1.0,
-        adv_init_var=1e-5
+        adv_temp=1.0
     ):
         self.model = model
         self.model_uw = model.module if hasattr(model, "module") else model
@@ -29,11 +26,8 @@ class SMARTTrainer:
         self.gradient_accumulation_steps = gradient_accumulation_steps
         self.global_step = 0
 
-        self.adv_steps = adv_steps
-        self.adv_lr = adv_lr
         self.adv_max_norm = adv_max_norm
         self.adv_temp = adv_temp
-        self.adv_init_var = adv_init_var
 
     def step(self, input_data):
         self.model.train()
@@ -44,48 +38,37 @@ class SMARTTrainer:
             input_ids, input_mask, segment_ids, labels = batch
 
             inputs_embeds = self.word_embeddings(input_ids)
-
             if self.fp16:
                 with autocast():
                     outputs = self.model(inputs_embeds=inputs_embeds,
-                                         attention_mask=input_mask,
-                                         token_type_ids=segment_ids,
-                                         labels=labels)
+                                            attention_mask=input_mask,
+                                            token_type_ids=segment_ids,
+                                            labels=labels)
             else:
                 outputs = self.model(inputs_embeds=inputs_embeds,
-                                     attention_mask=input_mask,
-                                     token_type_ids=segment_ids,
-                                     labels=labels)
+                                        attention_mask=input_mask,
+                                        token_type_ids=segment_ids,
+                                        labels=labels)
             loss = outputs[0].mean()
             logits = outputs[1]
 
-            delta = torch.randn_like(inputs_embeds, requires_grad=True) * self.adv_init_var
-            for j in range(self.adv_steps):
-                inputs_embeds = inputs_embeds + delta
-                if self.fp16:
-                    with autocast():
-                        outputs = self.model(inputs_embeds=inputs_embeds,
-                                             attention_mask=input_mask,
-                                             token_type_ids=segment_ids,
-                                             labels=labels)
-                else:
+            inputs_embeds = self.word_embeddings(input_ids)
+            delta = torch.empty_like(inputs_embeds).normal_(0, 1) * self.adv_max_norm
+            inputs_embeds = inputs_embeds + delta
+            if self.fp16:
+                with autocast():
                     outputs = self.model(inputs_embeds=inputs_embeds,
-                                         attention_mask=input_mask,
-                                         token_type_ids=segment_ids,
-                                         labels=labels)
-                logits_ptb = outputs[1]
+                                            attention_mask=input_mask,
+                                            token_type_ids=segment_ids,
+                                            labels=labels)
+            else:
+                outputs = self.model(inputs_embeds=inputs_embeds,
+                                        attention_mask=input_mask,
+                                        token_type_ids=segment_ids,
+                                        labels=labels)
+            logits_ptb = outputs[1]
 
-                if j == self.adv_steps - 1:
-                    smo_loss = sym_kl_loss(logits_ptb, logits)
-                    break
-
-                smo_loss = kl_loss(logits_ptb, logits.detach())
-                delta_grad, = torch.autograd.grad(smo_loss, delta)
-                delta = delta + self.adv_lr * delta_grad
-                delta_norm = torch.norm(delta, p=float("inf"), dim=-1, keepdim=True)
-                delta = delta / (delta_norm + self.adv_max_norm)
-                delta = delta.detach().requires_grad_()
-
+            smo_loss = sym_kl_loss(logits_ptb, logits)
             loss = loss + self.adv_temp * smo_loss
 
             if self.fp16:
@@ -94,6 +77,7 @@ class SMARTTrainer:
                 loss.backward()
 
             train_loss += loss.item()
+
             train_step += 1
             if (step + 1) % self.gradient_accumulation_steps == 0 or step == len(input_data) - 1:
                 if self.fp16:
