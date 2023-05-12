@@ -14,7 +14,7 @@ class CreATTrainer:
         adv_lr=1e-1,
         adv_max_norm=1e-1,
         adv_temp=1.0,
-        adv_init_var=1e-5
+        adv_init_var=1e-2
     ):
         self.model = model
         self.model_uw = model.module if hasattr(model, "module") else model
@@ -82,26 +82,26 @@ class CreATTrainer:
                                      labels=labels,
                                      output_hidden_states=True)
             loss = outputs[0].mean()
-            ctxr = outputs[-1][-1] * extended_input_mask
+            ctxr = outputs[-1][-1][:, 0]
 
-            delta = torch.randn_like(inputs_embeds, requires_grad=True) * self.adv_init_var
+            delta = torch.zeros_like(inputs_embeds).normal_(0, 1) * self.adv_init_var
+            delta.requires_grad_()
             for j in range(self.adv_steps):
-                inputs_embeds = inputs_embeds + delta
                 if self.fp16:
                     with autocast():
-                        outputs = self.model(inputs_embeds=inputs_embeds,
+                        outputs = self.model(inputs_embeds=inputs_embeds + delta,
                                              attention_mask=input_mask,
                                              token_type_ids=segment_ids,
                                              labels=labels,
                                              output_hidden_states=True)
                 else:
-                    outputs = self.model(inputs_embeds=inputs_embeds,
+                    outputs = self.model(inputs_embeds=inputs_embeds + delta,
                                          attention_mask=input_mask,
                                          token_type_ids=segment_ids,
                                          labels=labels,
                                          output_hidden_states=True)
                 loss_ptb = outputs[0].mean()
-                ctxr_ptb = outputs[-1][-1] * extended_input_mask
+                ctxr_ptb = outputs[-1][-1][:, 0]
 
                 if j == self.adv_steps - 1:
                     break
